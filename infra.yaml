@@ -111,6 +111,12 @@ Resources:
         -
           Key: Purpose
           Value: TETIS Test Worker
+
+  DataLakeResources:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: datalake.yaml
+
 Outputs:
   PublicIp:
     Value:

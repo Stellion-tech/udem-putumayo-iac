@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: 2010-09-09
+#Crear buckets de S3
+
+Resources:
+
+  DataLakeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName: udem-datalake-tetis
+
+  DataCleanBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName: udem-dataclean-tetis
+
+  GlueDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: database-udem-glue
+        Description: Base de datos para datalake
+
+  GlueDataAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: ''
+            Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AccessDataBucketPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - glue:*
+                  - lakeformation:*
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub ${DataLakeBucket.Arn}
+                  - !Sub ${DataLakeBucket.Arn}/*
+
+  DataBucketLakeFormation:
+    Type: AWS::LakeFormation::Resource
+    Properties:
+      ResourceArn: !GetAtt DataLakeBucket.Arn
+      UseServiceLinkedRole: true
+
+
+  DataLakeFormationPermission:
+    Type: AWS::LakeFormation::Permissions
+    Properties:
+      DataLakePrincipal:
+        DataLakePrincipalIdentifier: !GetAtt GlueDataAccessRole.Arn
+      Permissions:
+        - ALL
+      Resource:
+        DatabaseResource:
+          Name: !Ref GlueDatabase
+        DataLocationResource:
+          S3Resource: !Ref DataLakeBucket
