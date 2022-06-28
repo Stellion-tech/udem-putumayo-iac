@@ -112,10 +112,15 @@ Resources:
           Key: Purpose
           Value: TETIS Test Worker
 
+
+
   DataLakeResources:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: datalake.yaml
+      Parameters:
+        VPC: !Ref VPC
+        SubnetA: !Ref SubnetA
+      TemplateURL: https://udembucket.s3.amazonaws.com/datalake.yaml
 
 Outputs:
   PublicIp:

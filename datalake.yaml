@@ -1,6 +1,15 @@
 AWSTemplateFormatVersion: 2010-09-09
 #Crear buckets de S3
 
+Parameters:
+
+  VPC:
+    Type: String
+    Description: VPC para crear servidor FTP
+  SubnetA:
+    Type: String
+    Description: Subred para crear servidor FTP
+
 Resources:
 
   DataLakeBucket:
@@ -75,3 +84,101 @@ Resources:
           Name: !Ref GlueDatabase
         DataLocationResource:
           S3Resource: !Ref DataLakeBucket
+
+
+  SFTPServer:
+    Type: AWS::Transfer::Server
+    Properties:
+      EndpointType: PUBLIC
+      Tags:
+        - Key: Application
+          Value: udem-proyecto-putumayo
+
+  SFTPUserRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - transfer.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: S3FullAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListAllMyBuckets
+                  - s3:GetBucketLocation
+                Resource: "*"
+        - PolicyName: AllowListingOfUserFolder
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !GetAtt DataLakeBucket.Arn
+        - PolicyName: HomeDirObjectAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:DeleteObject
+                  - s3:DeleteObjectVersion
+                Resource: !Sub "${DataLakeBucket.Arn}/*"
+    
+  TestUser:
+    Type: AWS::Transfer::User
+    Properties:
+      ServerId: !GetAtt SFTPServer.ServerId
+      UserName: juan
+      HomeDirectory: !Sub "/${DataLakeBucket}/home/juan"
+      Policy: >
+          {
+            "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Sid": "AllowListingOfUserFolder",
+                            "Effect": "Allow",
+                            "Action": "s3:ListBucket",
+                            "Resource": "arn:aws:s3:::${transfer:HomeBucket}",
+                            "Condition": {
+                                "StringLike": {
+                                    "s3:prefix": [
+                                        "home/${transfer:UserName}/*",
+                                        "home/${transfer:UserName}"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "Sid": "HomeDirObjectAccess",
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:PutObject",
+                                "s3:GetObject",
+                                "s3:GetObjectVersion",
+                                "s3:DeleteObject",
+                                "s3:DeleteObjectVersion"
+                            ],
+                            "Resource": "arn:aws:s3:::${transfer:HomeDirectory}*"
+                        }
+                    ]
+            }
+      Role: !GetAtt SFTPUserRole.Arn
+      SshPublicKeys:
+        - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCu9GlxF4Q8NGF6qxNNFCfM2A1KsEPNgNkAz9RHMBYAAPL+yyvfj0Txfk5vWX2zrDvwkZGSWAY8PmDI2Mmn/qwv1XkK0gE9tRD8xKo/DAYDeNLOIcfCxLSg2Xj8Wgt4SWTUhqhXdpunBkImUt035V/OQcWgxWEFn+sVd/LwsDt9wxzCjB5nUmiDtk2HoE9asjCsgrfzLmWJZP7mNYiQSwMSW1P/v9lbVXK0htg8XGLsHyO/9Cg1HhLrHzRJ6vgS+Mu085MjbweRznIPAIbEAZrirDxZAkXedmHRtE8OZ/Rgo4p9brg3LBRLnE1+HUOLzf1SKMqvbunmxZl7ATWEoJP8TvD6oe5WZtdVnCF5Mll3RIcFWtP0Kj9ulYoMqB1dq8/aWYikeQlQ5WqBJ56rqFXMiVONZZQSfEqk7cNP0BUMws+qCaYdDA/1MmFcMXY2gGALGpCK3dKKYffNS5Oqa5PqoDzH23lOOmEnN7XdRF1iJcXn+CiN/AtdYhXLuq4Ed/YbvAz8zVJzIp3zKzRMYYHDe7grUXHhEmYoYAL93/8rJS6bg+TKNL6KJecHJPNuudjx1aJq4SmsDpUk6ZgmGgaDhVEdDauSZdXQqL7jVWa5+dnScA5VZdTZYRkZDVNDubXco6F1FSQcuVLIR2qoHPdZrXrPlmRA8c/45jrq+86KWQ== jendgame@88665a06b9bd.ant.amazon.com
+      Tags:
+        - Key: Application
+          Value: udem-proyecto-putumayo
