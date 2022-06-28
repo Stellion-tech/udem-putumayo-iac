@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: 2010-09-09
+#Crear base de datos
+
+Parameters:
+
+  VPC:
+    Type: String
+    Description: VPC para crear servidor FTP
+  SubnetA:
+    Type: String
+    Description: Subred para crear servidor FTP
+  SubnetB:
+    Type: String
+    Description: Subred para crear servidor FTP
+
+Resources:
+
+  Credentials:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "udem"}'
+        GenerateStringKey: "password"
+        PasswordLength: 16
+        ExcludeCharacters: '"@/\'
+
+  ClusterSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Grupo de subred default
+      SubnetIds:
+        -
+          !Ref SubnetA
+        -
+          !Ref SubnetB
+
+  ClusterSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+        GroupDescription: Permitir acceso a base de datos
+        VpcId:
+          !Ref VPC
+        SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 0.0.0.0/0
+
+  Cluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      DatabaseName: udemputumayodb
+      DBSubnetGroupName: !Ref ClusterSubnetGroup
+      Engine: aurora-postgresql
+      EngineMode: serverless
+      MasterUsername:
+        !Join
+            - ''
+            -
+              - '{{resolve:secretsmanager:'
+              - !Ref Credentials
+              - ':SecretString:username}}'
+      MasterUserPassword:
+        !Join
+            - ''
+            -
+              - '{{resolve:secretsmanager:'
+              - !Ref Credentials
+              - ':SecretString:password}}'
+      ScalingConfiguration:
+          AutoPause: true
+          MaxCapacity: 32
+          MinCapacity: 2
+          SecondsUntilAutoPause: 3000
+      VpcSecurityGroupIds:
+        - !Ref ClusterSecurityGroup
+
+  CredentialsTargetAttachment:
+    Type: AWS::SecretsManager::SecretTargetAttachment
+    Properties:
+      SecretId: !Ref Credentials
+      TargetId: !Ref Cluster
+      TargetType: AWS::RDS::DBCluster

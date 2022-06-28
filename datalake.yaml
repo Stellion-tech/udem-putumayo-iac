@@ -1,5 +1,4 @@
 AWSTemplateFormatVersion: 2010-09-09
-#Crear buckets de S3
 
 Parameters:
 
