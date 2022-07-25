@@ -2,12 +2,16 @@ AWSTemplateFormatVersion: 2010-09-09
 Parameters:
   InstanceTypeParameter:
     Type: String
-    Default: t2.micro
+    Default: t3a.medium
     Description: Tamaño de la instancia. Por defecto t3a.medium
   AMI:
     Type: String
     Default: ami-041306c411c38a789
     Description: AMI de windows
+  AMILINUX:
+    Type: String
+    Default: ami-0cff7528ff583bf9a
+    Description: AMI de linux
   Key:
     Type: String
     Description: Llave para acceder a la instancia
@@ -123,6 +127,40 @@ Resources:
         -
           Key: Purpose
           Value: TETIS Test Worker
+
+  Linux:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !Ref AMILINUX
+      InstanceType:
+        Ref: InstanceTypeParameter
+      KeyName: !Ref Key
+      SubnetId: !Ref SubnetA
+      SecurityGroupIds:
+        - Ref: InstanceSecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 250
+      Tags:
+        -
+          Key: Appplication
+          Value:  VISOR
+        -
+          Key: Environment
+          Value: Test
+        -
+          Key: LifeTime
+          Value: Transient
+        -
+          Key: Name
+          Value:  VISOR Server Worker
+        -
+          Key: OwnerContact
+          Value: "@hyg"
+        -
+          Key: Purpose
+          Value: VISOR Test Worker
 
 
 
